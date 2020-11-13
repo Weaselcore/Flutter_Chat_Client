@@ -1,1 +1,1 @@
-enum BubbleType { sender, receiver }
+enum BubbleType { sender, receiver, event }

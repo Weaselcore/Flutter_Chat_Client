@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_websocket_site/bubble_type.dart';
 import 'package:flutter_websocket_site/chat_bubble.dart';
@@ -86,7 +88,12 @@ class _MyHomePageState extends State<MyHomePage> {
                                   if (string.isNotEmpty) {
                                     setState(() {
                                       _name = string;
-                                      print('name has been changed to $string');
+                                      Map<String, String> messageMap = Map();
+                                      print('Name has been changed to $string');
+                                      messageMap.addAll(
+                                          {'type': 'name', 'value': string});
+                                      widget.channel.sink
+                                          .add(jsonEncode(messageMap));
                                       _nameController.clear();
                                     });
                                   }
@@ -115,40 +122,44 @@ class _MyHomePageState extends State<MyHomePage> {
                           stream: widget.channel.stream,
                           builder:
                               (BuildContext context, AsyncSnapshot snapshot) {
+                            print(snapshot.data);
                             if (snapshot.hasData) {
-                              globalMessageList.add(snapshot.data);
+                              globalMessageList.add(jsonDecode(snapshot.data));
                               return ListView.builder(
-                                itemCount: globalMessageList.length,
-                                controller: _listScrollController,
-                                itemBuilder: (BuildContext ctx, int index) {
-                                  hasMessage = true;
-                                  print(snapshot.data.toString());
-                                  print(snapshot.data
-                                      .toString()
-                                      .startsWith(_name));
-                                  if (snapshot.data
-                                      .toString()
-                                      .startsWith(_name)) {
-                                    return ChatBubble(
-                                      text: jsonConverter.jsonConvert(
-                                          globalMessageList[index]),
-                                      type: BubbleType.sender,
-                                      uniqueKey: UniqueKey(),
-                                    );
-                                  } else {
-                                    return ChatBubble(
-                                      text: jsonConverter.jsonConvert(
-                                          globalMessageList[index]),
-                                      type: BubbleType.receiver,
-                                      uniqueKey: UniqueKey(),
-                                    );
-                                  }
-
-                                  // ListTile(
-                                  //   title: Text(globalMessageList[index]),
-                                  // );
-                                },
-                              );
+                                  itemCount: globalMessageList.length,
+                                  controller: _listScrollController,
+                                  itemBuilder: (BuildContext ctx, int index) {
+                                    hasMessage = true;
+                                    if (snapshot.data['type'] == 'message') {
+                                      return ChatBubble(
+                                        text: jsonConverter.jsonConvert(
+                                            globalMessageList[index]),
+                                        type: BubbleType.sender,
+                                        uniqueKey: UniqueKey(),
+                                      );
+                                    } else if (globalMessageList[index]
+                                            ['type'] ==
+                                        'name') {
+                                      return ChatBubble(
+                                        text: jsonConverter.jsonConvert(
+                                            globalMessageList[index]),
+                                        type: BubbleType.receiver,
+                                        uniqueKey: UniqueKey(),
+                                      );
+                                    } else if (globalMessageList[index]
+                                                ['type'] ==
+                                            'join' ||
+                                        snapshot.data['type'] == 'leave') {
+                                      return ChatBubble(
+                                        text: jsonConverter.jsonConvert(
+                                            globalMessageList[index]),
+                                        type: BubbleType.event,
+                                        uniqueKey: UniqueKey(),
+                                      );
+                                    } else {
+                                      return null;
+                                    }
+                                  });
                             } else {
                               return Container(
                                 child: Text(
@@ -228,7 +239,9 @@ class _MyHomePageState extends State<MyHomePage> {
   void _sendMessage() {
     if (_messageController.text.isNotEmpty) {
       String newMessage = '$_name: ${_messageController.text}';
-      widget.channel.sink.add(newMessage);
+      print('[Sent]: $newMessage');
+      Map map = {'type': 'message', 'value': newMessage};
+      widget.channel.sink.add(jsonEncode(map));
       _messageController.clear();
       messageFocusNode.requestFocus();
 
@@ -244,7 +257,7 @@ class _MyHomePageState extends State<MyHomePage> {
     if (_nameController.text.isNotEmpty) {
       setState(() {
         _name = _nameController.text;
-        print('name has been changed to $_name');
+        print('Name has been changed to $_name');
         _nameController.clear();
       });
     }
